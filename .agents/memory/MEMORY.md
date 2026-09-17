@@ -1,0 +1,1 @@
+- [PROOF BFF route prefix](proof-bff-route-prefix.md) — use `/proof-api`; the workspace API artifact owns `/api` in shared preview routing.

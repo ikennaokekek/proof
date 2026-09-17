@@ -1,22 +1,20 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: PROOF Slice 1 foundation API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: authentication
+  - name: organizations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +22,219 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /session:
+    get:
+      operationId: getSession
+      tags: [authentication]
+      responses:
+        "200":
+          description: Current application session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+  /auth/sign-up:
+    post:
+      operationId: signUp
+      tags: [authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCredentials"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+  /auth/sign-in:
+    post:
+      operationId: signIn
+      tags: [authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCredentials"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+  /auth/sign-out:
+    post:
+      operationId: signOut
+      tags: [authentication]
+      responses:
+        "204":
+          description: Signed out
+  /organizations:
+    get:
+      operationId: listOrganizations
+      tags: [organizations]
+      responses:
+        "200":
+          description: Organizations available to the authenticated human
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Organization"
+    post:
+      operationId: createOrganization
+      tags: [organizations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationInput"
+      responses:
+        "201":
+          description: Organization established
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+  /organizations/{organizationId}:
+    get:
+      operationId: getOrganization
+      tags: [organizations]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: Organization available to the authenticated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationDetail"
 components:
+  parameters:
+    OrganizationId:
+      in: path
+      name: organizationId
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
-
+    AuthCredentials:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+    AuthResult:
+      type: object
+      required: [authenticated, message]
+      properties:
+        authenticated:
+          type: boolean
+        message:
+          type: string
+    Session:
+      type: object
+      required: [authenticated]
+      properties:
+        authenticated:
+          type: boolean
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/SessionUser"
+            - type: "null"
+    SessionUser:
+      type: object
+      required: [id, email]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+    OrganizationInput:
+      type: object
+      additionalProperties: false
+      required: [name, jobTitle, establishmentCapacity, eligibilityAttested]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        jobTitle:
+          type: string
+          minLength: 2
+          maxLength: 100
+        establishmentCapacity:
+          type: string
+          enum: [chief_executive, business_owner, chief_financial_officer, finance_director]
+        eligibilityAttested:
+          type: boolean
+          const: true
+    Organization:
+      type: object
+      required: [id, name, membershipRoles, jobTitle, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        membershipRoles:
+          type: array
+          items:
+            type: string
+            enum: [Owner, Admin, Requester, Approver, Auditor]
+        jobTitle:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    Membership:
+      type: object
+      required: [userId, roles, jobTitle, joinedAt]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [Owner, Admin, Requester, Approver, Auditor]
+        jobTitle:
+          type: string
+        joinedAt:
+          type: string
+          format: date-time
+    OrganizationDetail:
+      allOf:
+        - $ref: "#/components/schemas/Organization"
+        - type: object
+          required: [members]
+          properties:
+            members:
+              type: array
+              items:
+                $ref: "#/components/schemas/Membership"

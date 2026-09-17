@@ -1,0 +1,23 @@
+kind = "web"
+previewPath = "/"
+title = "PROOF"
+description = "A calm, trustworthy business application foundation for authenticated human identity and organization membership, with server-enforced tenant isolation. Slice 1 includes account authentication, organization establishment, memberships, and the application shell only."
+version = "1.0.0"
+id = "artifacts/proof"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23814
+
+[services.development]
+run = "pnpm --filter @workspace/proof run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/proof", "run", "build" ]
+serve = "pnpm --filter @workspace/proof run start"
+
+[services.env]
+PORT = "23814"
+BASE_PATH = "/"
