@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "NEXT_DIST_DIR=.next-build next build",
+    "start": "NEXT_DIST_DIR=.next-build next start",
     "lint": "eslint app components hooks lib tests --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --exclude tests/integration/**",
@@ -14,7 +14,6 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@replit/connectors-sdk": "^0.4.3",
     "@tanstack/react-query": "catalog:",
     "@workspace/api-client-react": "workspace:*",
     "next": "^15.5.9",

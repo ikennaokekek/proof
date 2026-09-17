@@ -1,16 +1,22 @@
 import "server-only";
 
-import { ReplitConnectors } from "@replit/connectors-sdk";
-
 export type SupabaseError = {
-  code?: string;
+  error?: string;
+  code?: string | number;
+  error_code?: string;
   message?: string;
+  msg?: string;
   details?: string;
   hint?: string;
 };
 
-export function getSupabaseConnector() {
-  return new ReplitConnectors();
+function getSupabaseConfiguration() {
+  const url = process.env.SUPABASE_URL;
+  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !publishableKey) {
+    throw new Error("Supabase server configuration is unavailable");
+  }
+  return { url: url.replace(/\/$/, ""), publishableKey };
 }
 
 export async function supabaseRequest(
@@ -18,16 +24,29 @@ export async function supabaseRequest(
   init: RequestInit = {},
   accessToken?: string,
 ) {
+  const { url, publishableKey } = getSupabaseConfiguration();
   const headers = new Headers(init.headers);
   if (init.body) headers.set("content-type", "application/json");
-  if (accessToken) headers.set("authorization", `Bearer ${accessToken}`);
+  headers.set("apikey", publishableKey);
+  headers.set(
+    "authorization",
+    `Bearer ${accessToken ?? publishableKey}`,
+  );
 
-  return getSupabaseConnector().proxy("supabase", path, {
+  return fetch(`${url}${path.startsWith("/") ? path : `/${path}`}`, {
     ...init,
-    headers: Object.fromEntries(headers.entries()),
+    cache: "no-store",
+    headers,
   });
 }
 
 export async function readSupabaseError(response: Response): Promise<SupabaseError> {
-  return response.json().catch(() => ({ message: "Supabase request failed" }));
+  const text = await response.text();
+  try {
+    return JSON.parse(text) as SupabaseError;
+  } catch {
+    return {
+      message: text.trim().slice(0, 500) || response.statusText || "Supabase request failed",
+    };
+  }
 }

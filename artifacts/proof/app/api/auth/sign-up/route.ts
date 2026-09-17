@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { supabaseRequest } from "@/lib/server/connectors";
+import {
+  readSupabaseError,
+  supabaseRequest,
+} from "@/lib/server/connectors";
 import { persistSession } from "@/lib/server/session";
 
 const credentials = z
@@ -19,6 +22,12 @@ export async function POST(request: Request) {
     body: JSON.stringify(parsed.data),
   });
   if (!response.ok) {
+    const error = await readSupabaseError(response);
+    console.error("[supabase-auth] sign-up failed", {
+      status: response.status,
+      code: error.error_code ?? error.code,
+      message: error.message ?? error.msg ?? error.error,
+    });
     return Response.json(
       { authenticated: false, message: "Unable to create that account." },
       { status: response.status },

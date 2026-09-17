@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -42,11 +42,20 @@ beforeAll(async () => {
     grant usage on schema auth to authenticated;
     grant execute on function auth.uid() to authenticated;
   `);
-  const migration = await readFile(
-    path.resolve(process.cwd(), "../../supabase/migrations/20260308000000_slice1_foundation.sql"),
-    "utf8",
+  const migrationsDirectory = path.resolve(
+    process.cwd(),
+    "../../supabase/migrations",
   );
-  await pool.query(migration);
+  const migrationNames = (await readdir(migrationsDirectory))
+    .filter((name) => name.endsWith(".sql"))
+    .sort();
+  for (const migrationName of migrationNames) {
+    const migration = await readFile(
+      path.join(migrationsDirectory, migrationName),
+      "utf8",
+    );
+    await pool.query(migration);
+  }
   await pool.query(
     "insert into auth.users(id,email) values ($1,$2),($3,$4) on conflict do nothing",
     [users[0], `slice1-${users[0]}@example.test`, users[1], `slice1-${users[1]}@example.test`],

@@ -7,7 +7,9 @@
     "hooks/**/*",
     "lib/**/*",
     "tests/**/*",
-    ".next/types/**/*.ts"
+    ".next-build/types/**/*.ts",
+    ".next-runtime/types/**/*.ts",
+    ".next-playwright/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

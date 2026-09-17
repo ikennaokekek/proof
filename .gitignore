@@ -5,6 +5,12 @@ dist
 tmp
 out-tsc
 *.tsbuildinfo
+.next
+.next-build
+.next-runtime
+.next-playwright
+test-results
+playwright-report
 .expo
 .expo-shared
 
