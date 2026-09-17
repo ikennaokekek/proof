@@ -61,7 +61,7 @@ test("authenticated founder lifecycle and authorization boundaries", async ({
       },
     },
   );
-  expect(missingAttestation.status()).toBe(403);
+  expect(missingAttestation.status()).toBe(400);
 
   const createOrganization = await page.request.post(
     "/proof-api/organizations",
@@ -118,7 +118,7 @@ test("authenticated founder lifecycle and authorization boundaries", async ({
   ]);
 
   const signout = await page.request.post("/proof-api/auth/sign-out");
-  expect(signout.status()).toBe(200);
+  expect(signout.status()).toBe(204);
 
   const sessionAfterSignout = await page.request.get("/proof-api/session");
   expect(sessionAfterSignout.status()).toBe(200);

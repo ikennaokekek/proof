@@ -1,2 +1,3 @@
 - [PROOF BFF route prefix](proof-bff-route-prefix.md) — use `/proof-api`; the workspace API artifact owns `/api` in shared preview routing.
+- [Supabase acceptance environment](supabase-acceptance-environment.md) — real Auth E2E uses an isolated hosted project and development-only test variables.
 - [Supabase runtime boundary](supabase-runtime-boundary.md) — call Supabase directly from server-only code; the connector proxy failed before reaching Auth.

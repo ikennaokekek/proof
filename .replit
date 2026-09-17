@@ -28,5 +28,7 @@ packages = ["glib", "nspr", "nss", "at-spi2-atk", "dbus", "xorg.libX11", "xorg.l
 [userenv.shared]
 SUPABASE_PUBLISHABLE_KEY = "sb_publishable_4MorMIAuRHWvE2cULJmgLQ_Sh6hTjt8"
 SUPABASE_URL = "https://nteoyjkkkoklestlbllo.supabase.co"
+
+[userenv.development]
 SUPABASE_TEST_PUBLISHABLE_KEY = "sb_publishable_am4sEg0OtE_YLEW0_q-eGg_SsjemRSt"
 SUPABASE_TEST_URL = "https://tbtaxtfjwajvayacpxmt.supabase.co"
