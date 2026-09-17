@@ -4,6 +4,10 @@ import {
   supabaseRequest,
 } from "@/lib/server/connectors";
 import { persistSession } from "@/lib/server/session";
+import {
+  logSecurityEvent,
+  protectMutation,
+} from "@/lib/server/security";
 
 const credentials = z
   .object({
@@ -17,6 +21,13 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return Response.json({ error: "invalid_request" }, { status: 400 });
   }
+  const rejected = protectMutation(request, {
+    scope: "auth.sign_in",
+    limit: 10,
+    windowMs: 15 * 60 * 1_000,
+    subject: parsed.data.email,
+  });
+  if (rejected) return rejected;
   const response = await supabaseRequest(
     "/auth/v1/token?grant_type=password",
     { method: "POST", body: JSON.stringify(parsed.data) },
@@ -28,11 +39,15 @@ export async function POST(request: Request) {
       code: error.error_code ?? error.code,
       message: error.message ?? error.msg ?? error.error,
     });
+    logSecurityEvent("auth.sign_in", request, "failed", {
+      upstreamStatus: response.status,
+    });
     return Response.json(
       { authenticated: false, message: "Unable to sign in with those credentials." },
       { status: response.status === 400 ? 401 : response.status },
     );
   }
   await persistSession(await response.json());
+  logSecurityEvent("auth.sign_in", request, "succeeded");
   return Response.json({ authenticated: true, message: "Signed in" });
 }

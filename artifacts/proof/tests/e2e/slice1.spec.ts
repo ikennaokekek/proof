@@ -13,6 +13,16 @@ test("unauthenticated shell and server boundary", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Sign in to PROOF" })).toBeVisible();
   await expect(page.getByLabel("Email address")).toBeVisible();
   await expect(page.getByLabel("Password")).toBeVisible();
+
+  const response = await page.request.get("/");
+  expect(response.headers()["content-security-policy"]).toContain(
+    "frame-ancestors 'none'",
+  );
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(response.headers()["x-frame-options"]).toBe("DENY");
+  expect(response.headers()["cross-origin-resource-policy"]).toBe(
+    "same-origin",
+  );
 });
 
 test("authenticated founder lifecycle and authorization boundaries", async ({
@@ -22,8 +32,25 @@ test("authenticated founder lifecycle and authorization boundaries", async ({
   const email = `proof-slice1-e2e-${suffix}@example.com`;
   const password = `Slice1-E2E-${suffix}-Aa!`;
   const organizationName = `Slice 1 E2E ${suffix}`;
+  const origin = "http://localhost:3000";
+
+  const crossOriginSignup = await page.request.post(
+    "/proof-api/auth/sign-up",
+    {
+      headers: {
+        origin: "https://attacker.invalid",
+        "sec-fetch-site": "cross-site",
+      },
+      data: { email, password },
+    },
+  );
+  expect(crossOriginSignup.status()).toBe(403);
+  expect(crossOriginSignup.headers()["access-control-allow-origin"]).toBe(
+    undefined,
+  );
 
   const signup = await page.request.post("/proof-api/auth/sign-up", {
+    headers: { origin, "sec-fetch-site": "same-origin" },
     data: { email, password },
   });
   expect(signup.status()).toBe(201);
@@ -39,6 +66,7 @@ test("authenticated founder lifecycle and authorization boundaries", async ({
   );
 
   const forgedAuthority = await page.request.post("/proof-api/organizations", {
+    headers: { origin, "sec-fetch-site": "same-origin" },
     data: {
       name: organizationName,
       jobTitle: "Business Owner",
@@ -53,6 +81,7 @@ test("authenticated founder lifecycle and authorization boundaries", async ({
   const missingAttestation = await page.request.post(
     "/proof-api/organizations",
     {
+      headers: { origin, "sec-fetch-site": "same-origin" },
       data: {
         name: `${organizationName} rejected`,
         jobTitle: "Business Owner",
@@ -66,6 +95,7 @@ test("authenticated founder lifecycle and authorization boundaries", async ({
   const createOrganization = await page.request.post(
     "/proof-api/organizations",
     {
+      headers: { origin, "sec-fetch-site": "same-origin" },
       data: {
         name: organizationName,
         jobTitle: "Business Owner",
@@ -117,7 +147,9 @@ test("authenticated founder lifecycle and authorization boundaries", async ({
     }),
   ]);
 
-  const signout = await page.request.post("/proof-api/auth/sign-out");
+  const signout = await page.request.post("/proof-api/auth/sign-out", {
+    headers: { origin, "sec-fetch-site": "same-origin" },
+  });
   expect(signout.status()).toBe(204);
 
   const sessionAfterSignout = await page.request.get("/proof-api/session");

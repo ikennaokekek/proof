@@ -160,3 +160,5 @@ overrides:
   esbuild: "0.28.2"
   # orval pins js-yaml to an exact version older than the CVE fix (>=4.3.2)
   js-yaml: '4.3.2'
+  # Next 15 pins an older PostCSS release with known arbitrary file-read issues.
+  postcss: '8.5.28'

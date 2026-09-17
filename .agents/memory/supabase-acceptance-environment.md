@@ -7,4 +7,4 @@ Run Playwright against a dedicated hosted Supabase acceptance project with email
 
 **Why:** Hosted email delivery rate limits blocked repeatable sign-up verification, while local Supabase requires container support unavailable in this Replit environment. The isolated project preserves real Supabase Auth and RLS without changing the main project.
 
-**How to apply:** Keep all application routes unchanged. Never add test-login routes, fake JWTs, injected cookies, service-role browser requests, disabled RLS, or Auth mocks. Remove disposable users and organizations through the trusted Supabase management connection after each acceptance run.
+**How to apply:** Keep all application routes unchanged. Never add test-login routes, fake JWTs, injected cookies, service-role browser requests, disabled RLS, or Auth mocks. Use a dedicated test database credential for trusted cleanup and verify its hostname matches the acceptance API project; the workspace's generic database URL may target a different database. Remove disposable users and organizations after each acceptance run.

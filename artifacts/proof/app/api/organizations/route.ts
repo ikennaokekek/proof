@@ -4,6 +4,10 @@ import {
   readSupabaseError,
   supabaseRequest,
 } from "@/lib/server/connectors";
+import {
+  logSecurityEvent,
+  protectMutation,
+} from "@/lib/server/security";
 
 type OrganizationRow = { id: string; name: string; created_at: string };
 type MembershipRow = {
@@ -52,6 +56,13 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session) return unauthorized();
+  const rejected = protectMutation(request, {
+    scope: "organization.create",
+    limit: 10,
+    windowMs: 60 * 60 * 1_000,
+    subject: session.userId,
+  });
+  if (rejected) return rejected;
   const parsed = organizationInputSchema.safeParse(
     await request.json().catch(() => null),
   );
@@ -74,9 +85,16 @@ export async function POST(request: Request) {
   if (!response.ok) {
     const error = await readSupabaseError(response);
     const status = error.code === "42501" ? 403 : 400;
+    logSecurityEvent("organization.create", request, "failed", {
+      upstreamStatus: response.status,
+      responseStatus: status,
+    });
     return Response.json({ error: "organization_establishment_failed" }, { status });
   }
   const organization = (await response.json()) as OrganizationRow;
+  logSecurityEvent("organization.create", request, "succeeded", {
+    organizationId: organization.id,
+  });
   return Response.json(
     {
       id: organization.id,

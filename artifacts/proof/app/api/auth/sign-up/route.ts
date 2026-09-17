@@ -4,6 +4,10 @@ import {
   supabaseRequest,
 } from "@/lib/server/connectors";
 import { persistSession } from "@/lib/server/session";
+import {
+  logSecurityEvent,
+  protectMutation,
+} from "@/lib/server/security";
 
 const credentials = z
   .object({
@@ -17,6 +21,13 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return Response.json({ error: "invalid_request" }, { status: 400 });
   }
+  const rejected = protectMutation(request, {
+    scope: "auth.sign_up",
+    limit: 5,
+    windowMs: 60 * 60 * 1_000,
+    subject: parsed.data.email,
+  });
+  if (rejected) return rejected;
   const response = await supabaseRequest("/auth/v1/signup", {
     method: "POST",
     body: JSON.stringify(parsed.data),
@@ -28,6 +39,9 @@ export async function POST(request: Request) {
       code: error.error_code ?? error.code,
       message: error.message ?? error.msg ?? error.error,
     });
+    logSecurityEvent("auth.sign_up", request, "failed", {
+      upstreamStatus: response.status,
+    });
     return Response.json(
       { authenticated: false, message: "Unable to create that account." },
       { status: response.status },
@@ -36,11 +50,17 @@ export async function POST(request: Request) {
   const result = await response.json();
   if (result.access_token && result.refresh_token) {
     await persistSession(result);
+    logSecurityEvent("auth.sign_up", request, "succeeded", {
+      sessionEstablished: true,
+    });
     return Response.json(
       { authenticated: true, message: "Account created" },
       { status: 201 },
     );
   }
+  logSecurityEvent("auth.sign_up", request, "succeeded", {
+    sessionEstablished: false,
+  });
   return Response.json(
     {
       authenticated: false,
