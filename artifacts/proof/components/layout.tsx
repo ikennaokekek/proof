@@ -37,7 +37,11 @@ export function Layout({ children }: { children: ReactNode }) {
           {session?.authenticated && session.user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Button
+                  variant="ghost"
+                  className="relative h-9 w-9 rounded-full"
+                  aria-label="Open account menu"
+                >
                   <Avatar className="h-9 w-9 border border-border">
                     <AvatarFallback className="bg-primary/5 text-primary text-xs">
                       {session.user.email.slice(0, 2).toUpperCase()}
