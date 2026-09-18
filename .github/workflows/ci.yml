@@ -4,6 +4,9 @@ on:
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-slice1-acceptance
+  cancel-in-progress: false
 jobs:
   foundation:
     runs-on: ubuntu-latest
@@ -25,8 +28,13 @@ jobs:
         shell: bash
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_TEST_DATABASE_URL }}
-        run: test -n "$DATABASE_URL"
-      - run: pnpm --filter @workspace/proof run test:integration
+          SUPABASE_TEST_URL: ${{ secrets.SUPABASE_TEST_URL }}
+          SUPABASE_TEST_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_TEST_PUBLISHABLE_KEY }}
+        run: |
+          test -n "$DATABASE_URL"
+          test -n "$SUPABASE_TEST_URL"
+          test -n "$SUPABASE_TEST_PUBLISHABLE_KEY"
+      - run: pnpm --filter @workspace/proof run test:integration:hosted
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_TEST_DATABASE_URL }}
           SUPABASE_TEST_URL: ${{ secrets.SUPABASE_TEST_URL }}

@@ -9,9 +9,12 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const users = [crypto.randomUUID(), crypto.randomUUID()];
 const organizationIds: string[] = [];
 const accessTokens: string[] = [];
+const hostedEmails: string[] = [];
+const hostedOrganizationNames: string[] = [];
 const hostedApiUrl = process.env.SUPABASE_TEST_URL;
 const hostedPublishableKey = process.env.SUPABASE_TEST_PUBLISHABLE_KEY;
-const hosted = Boolean(hostedApiUrl && hostedPublishableKey);
+const testMode = process.env.SUPABASE_TEST_MODE;
+const hosted = testMode === "hosted";
 let databaseConnected = false;
 
 type SupabaseAuthResponse = {
@@ -36,10 +39,12 @@ async function supabaseRequest(
 
 async function createHostedUser(index: number) {
   const suffix = crypto.randomUUID();
+  const email = `proof-slice1-rls-${suffix}@example.com`;
+  hostedEmails.push(email);
   const response = await supabaseRequest("/auth/v1/signup", {
     method: "POST",
     body: JSON.stringify({
-      email: `proof-slice1-rls-${suffix}@example.com`,
+      email,
       password: `Slice1-RLS-${suffix}-Aa!`,
     }),
   });
@@ -54,12 +59,14 @@ async function createHostedUser(index: number) {
 }
 
 async function establishHostedOrganization(index: number) {
+  const organizationName = `Slice 1 RLS ${crypto.randomUUID()} Tenant ${index + 1}`;
+  hostedOrganizationNames.push(organizationName);
   const response = await supabaseRequest(
     "/rest/v1/rpc/establish_organization",
     {
       method: "POST",
       body: JSON.stringify({
-        organization_name: `Tenant ${index + 1}`,
+        organization_name: organizationName,
         creator_job_title: "Business Owner",
         establishment_capacity: "business_owner",
         eligibility_attested: true,
@@ -99,9 +106,14 @@ async function asUser<T>(
 
 beforeAll(async () => {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
-  if (Boolean(hostedApiUrl) !== Boolean(hostedPublishableKey)) {
+  if (testMode !== "local" && testMode !== "hosted") {
     throw new Error(
-      "SUPABASE_TEST_URL and SUPABASE_TEST_PUBLISHABLE_KEY must be provided together",
+      "SUPABASE_TEST_MODE must explicitly select local or hosted integration",
+    );
+  }
+  if (hosted && (!hostedApiUrl || !hostedPublishableKey)) {
+    throw new Error(
+      "Hosted integration requires SUPABASE_TEST_URL and SUPABASE_TEST_PUBLISHABLE_KEY",
     );
   }
 
@@ -129,6 +141,15 @@ beforeAll(async () => {
     await createHostedUser(0);
     await createHostedUser(1);
   } else {
+    const databaseHostname = new URL(process.env.DATABASE_URL).hostname;
+    if (
+      databaseHostname.endsWith(".supabase.co") ||
+      databaseHostname.endsWith(".pooler.supabase.com")
+    ) {
+      throw new Error(
+        "Local integration bootstrap refuses hosted Supabase database targets",
+      );
+    }
     await pool.query(`
       create schema if not exists auth;
       create table if not exists auth.users (id uuid primary key, email text not null unique);
@@ -182,13 +203,18 @@ beforeAll(async () => {
 afterAll(async () => {
   try {
     if (!databaseConnected) return;
-    if (organizationIds.length > 0) {
+    if (organizationIds.length > 0 || hostedOrganizationNames.length > 0) {
       await pool.query(
-        "delete from public.organizations where id = any($1::uuid[])",
-        [organizationIds],
+        `delete from public.organizations
+         where id = any($1::uuid[]) or name = any($2::text[])`,
+        [organizationIds, hostedOrganizationNames],
       );
     }
-    await pool.query("delete from auth.users where id = any($1::uuid[])", [users]);
+    await pool.query(
+      `delete from auth.users
+       where id = any($1::uuid[]) or email = any($2::text[])`,
+      [users, hostedEmails],
+    );
   } finally {
     await pool.end();
   }

@@ -10,7 +10,8 @@
     "lint": "eslint app components hooks lib tests --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --exclude tests/integration/**",
-    "test:integration": "vitest run tests/integration",
+    "test:integration": "SUPABASE_TEST_MODE=local vitest run tests/integration",
+    "test:integration:hosted": "SUPABASE_TEST_MODE=hosted vitest run tests/integration",
     "test:e2e": "playwright test"
   },
   "dependencies": {
