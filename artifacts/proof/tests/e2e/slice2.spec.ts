@@ -10,8 +10,10 @@ test("Slice 2 membership, invitation, authority, and suspension journey", async 
   const suffix = randomUUID();
   const ownerEmail = `proof-slice2-e2e-owner-${suffix}@example.com`;
   const memberEmail = `proof-slice2-e2e-member-${suffix}@example.com`;
+  const approverEmail = `proof-slice2-e2e-approver-${suffix}@example.com`;
   const ownerPassword = `Slice2-Owner-${suffix}-Aa!`;
   const memberPassword = `Slice2-Member-${suffix}-Aa!`;
+  const approverPassword = `Slice2-Approver-${suffix}-Aa!`;
   const organizationName = `Slice 2 E2E ${suffix}`;
   const origin = "http://localhost:3000";
   const headers = { origin, "sec-fetch-site": "same-origin" };
@@ -172,6 +174,112 @@ test("Slice 2 membership, invitation, authority, and suspension journey", async 
     (await page.request.get(`/proof-api/organizations/${organizationId}/authorities`)).status(),
   ).toBe(200);
 
+  const promoteSecondOwner = await page.request.patch(
+    `/proof-api/organizations/${organizationId}/members/${memberId}`,
+    {
+      headers,
+      data: { roles: ["Owner"], active: true, jobTitle: "Finance Owner" },
+    },
+  );
+  expect(promoteSecondOwner.status()).toBe(200);
+
+  const approverInvitation = await page.request.post(invitationPath, {
+    headers,
+    data: {
+      email: approverEmail,
+      roles: ["Approver"],
+      jobTitle: "Independent Approver",
+    },
+  });
+  expect(approverInvitation.status()).toBe(201);
+  const approverInvitationToken = (await approverInvitation.json()).token as string;
+  await page.request.post("/proof-api/auth/sign-out", { headers });
+  expect(
+    (
+      await page.request.post("/proof-api/auth/sign-up", {
+        headers,
+        data: { email: approverEmail, password: approverPassword },
+      })
+    ).status(),
+  ).toBe(201);
+  const acceptedApprover = await page.request.post("/proof-api/invitations/accept", {
+    headers,
+    data: { token: approverInvitationToken },
+  });
+  expect(acceptedApprover.status()).toBe(201);
+  const approverMemberId = (await acceptedApprover.json()).id as string;
+
+  await page.request.post("/proof-api/auth/sign-out", { headers });
+  expect(
+    (
+      await page.request.post("/proof-api/auth/sign-in", {
+        headers,
+        data: { email: ownerEmail, password: ownerPassword },
+      })
+    ).status(),
+  ).toBe(200);
+  const dualControlRequest = await page.request.post(
+    `/proof-api/organizations/${organizationId}/authorities`,
+    { headers, data: { memberId: approverMemberId, category: "payment" } },
+  );
+  expect(dualControlRequest.status()).toBe(202);
+  const dualControlRequestBody = await dualControlRequest.json();
+  expect(dualControlRequestBody).toMatchObject({
+    member_id: approverMemberId,
+    category: "payment",
+    status: "pending",
+  });
+  expect(
+    (
+      await page.request.post(`/proof-api/organizations/${organizationId}/authorities`, {
+        headers,
+        data: { memberId: approverMemberId, category: "payment" },
+      })
+    ).status(),
+  ).toBe(409);
+  expect(
+    (
+      await page.request.post(
+        `/proof-api/organizations/${organizationId}/authority-requests/${dualControlRequestBody.id}/approve`,
+        { headers },
+      )
+    ).status(),
+  ).toBe(403);
+
+  await page.request.post("/proof-api/auth/sign-out", { headers });
+  expect(
+    (
+      await page.request.post("/proof-api/auth/sign-in", {
+        headers,
+        data: { email: memberEmail, password: memberPassword },
+      })
+    ).status(),
+  ).toBe(200);
+  const dualControlApproval = await page.request.post(
+    `/proof-api/organizations/${organizationId}/authority-requests/${dualControlRequestBody.id}/approve`,
+    { headers },
+  );
+  expect(dualControlApproval.status()).toBe(200);
+  expect(await dualControlApproval.json()).toMatchObject({
+    member_id: approverMemberId,
+    category: "payment",
+    active: true,
+  });
+  expect(
+    (
+      await page.request.post(
+        `/proof-api/organizations/${organizationId}/authority-requests/${dualControlRequestBody.id}/approve`,
+        { headers },
+      )
+    ).status(),
+  ).toBe(409);
+
+  await page.request.post("/proof-api/auth/sign-out", { headers });
+  await page.request.post("/proof-api/auth/sign-in", {
+    headers,
+    data: { email: ownerEmail, password: ownerPassword },
+  });
+
   const crossOrigin = await page.request.post(
     `/proof-api/organizations/${organizationId}/authorities`,
     {
@@ -215,5 +323,5 @@ test("Slice 2 membership, invitation, authority, and suspension journey", async 
   await expect(page.getByRole("tab", { name: "Members" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Authority" })).toBeVisible();
 
-  console.log(JSON.stringify({ testCleanup: { ownerEmail, memberEmail, organizationId } }));
+  console.log(JSON.stringify({ testCleanup: { ownerEmail, memberEmail, approverEmail, organizationId } }));
 });

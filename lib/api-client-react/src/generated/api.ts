@@ -22,6 +22,7 @@ import type {
 import type {
   AcceptInvitationInput,
   ApprovalAuthority,
+  ApprovalAuthorityRequest,
   AuthCredentials,
   AuthResult,
   AuthorityInput,
@@ -1210,7 +1211,7 @@ export const getGrantApprovalAuthorityUrl = (organizationId: string,) => {
 }
 
 export const grantApprovalAuthority = async (organizationId: string,
-    authorityInput: AuthorityInput, options?: Parameters<typeof customFetch>[1]): Promise<ApprovalAuthority> => {
+    authorityInput: AuthorityInput, options?: Parameters<typeof customFetch>[1]): Promise<ApprovalAuthority | ApprovalAuthorityRequest> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1226,7 +1227,7 @@ export const grantApprovalAuthority = async (organizationId: string,
     }
     return headers;
   };
-return customFetch<ApprovalAuthority>(getGrantApprovalAuthorityUrl(organizationId),
+return customFetch<ApprovalAuthority | ApprovalAuthorityRequest>(getGrantApprovalAuthorityUrl(organizationId),
   {
     ...options,
     method: 'POST',
@@ -1282,6 +1283,147 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getGrantApprovalAuthorityMutationOptions(options));
+    }
+
+export const getListApprovalAuthorityRequestsUrl = (organizationId: string,) => {
+
+
+
+
+  return `/proof-api/organizations/${organizationId}/authority-requests`
+}
+
+export const listApprovalAuthorityRequests = async (organizationId: string, options?: Parameters<typeof customFetch>[1]): Promise<ApprovalAuthorityRequest[]> => {
+
+  return customFetch<ApprovalAuthorityRequest[]>(getListApprovalAuthorityRequestsUrl(organizationId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListApprovalAuthorityRequestsQueryKey = (organizationId: string,) => {
+    return [
+    `/proof-api/organizations/${organizationId}/authority-requests`
+    ] as const;
+    }
+
+
+export const getListApprovalAuthorityRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listApprovalAuthorityRequests>>, TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | ServiceUnavailableResponse>>(organizationId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApprovalAuthorityRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListApprovalAuthorityRequestsQueryKey(organizationId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listApprovalAuthorityRequests>>> = ({ signal }) => listApprovalAuthorityRequests(organizationId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: organizationId !== null && organizationId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listApprovalAuthorityRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListApprovalAuthorityRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listApprovalAuthorityRequests>>>
+export type ListApprovalAuthorityRequestsQueryError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | ServiceUnavailableResponse>
+
+
+
+export function useListApprovalAuthorityRequests<TData = Awaited<ReturnType<typeof listApprovalAuthorityRequests>>, TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | ServiceUnavailableResponse>>(
+ organizationId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApprovalAuthorityRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListApprovalAuthorityRequestsQueryOptions(organizationId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getApproveApprovalAuthorityRequestUrl = (organizationId: string,
+    requestId: string,) => {
+
+
+
+
+  return `/proof-api/organizations/${organizationId}/authority-requests/${requestId}/approve`
+}
+
+export const approveApprovalAuthorityRequest = async (organizationId: string,
+    requestId: string, options?: Parameters<typeof customFetch>[1]): Promise<ApprovalAuthority> => {
+
+  return customFetch<ApprovalAuthority>(getApproveApprovalAuthorityRequestUrl(organizationId,requestId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApproveApprovalAuthorityRequestMutationKey = () => ['approveApprovalAuthorityRequest'] as const;
+
+export const getApproveApprovalAuthorityRequestMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | NotFoundResponse | ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveApprovalAuthorityRequest>>, TError,ApproveApprovalAuthorityRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveApprovalAuthorityRequest>>, TError,ApproveApprovalAuthorityRequestMutationVariables, TContext> => {
+
+const mutationKey = getApproveApprovalAuthorityRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveApprovalAuthorityRequest>>, ApproveApprovalAuthorityRequestMutationVariables> = (props) => {
+          const {organizationId,requestId} = props ?? {};
+
+          return  approveApprovalAuthorityRequest(organizationId,requestId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveApprovalAuthorityRequestMutationResult = NonNullable<Awaited<ReturnType<typeof approveApprovalAuthorityRequest>>>
+
+    export type ApproveApprovalAuthorityRequestMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | NotFoundResponse | ConflictResponse>
+    export type ApproveApprovalAuthorityRequestMutationVariables = {organizationId: string;requestId: string}
+
+    export const useApproveApprovalAuthorityRequest = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | NotFoundResponse | ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveApprovalAuthorityRequest>>, TError,ApproveApprovalAuthorityRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveApprovalAuthorityRequest>>,
+        TError,
+        ApproveApprovalAuthorityRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getApproveApprovalAuthorityRequestMutationOptions(options));
     }
 
 export const getRevokeApprovalAuthorityUrl = (organizationId: string,

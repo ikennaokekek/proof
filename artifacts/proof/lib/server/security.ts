@@ -26,6 +26,8 @@ type SecurityEvent =
   | "membership.suspend"
   | "membership.reactivate"
   | "authority.grant"
+  | "authority.grant_requested"
+  | "authority.approve"
   | "authority.revoke"
   | "request.csrf_rejected"
   | "request.rate_limited";

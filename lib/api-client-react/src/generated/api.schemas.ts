@@ -134,6 +134,26 @@ export interface ApprovalAuthority {
   revoked_at?: string | null;
 }
 
+export type ApprovalAuthorityRequestStatus = typeof ApprovalAuthorityRequestStatus[keyof typeof ApprovalAuthorityRequestStatus];
+
+
+export const ApprovalAuthorityRequestStatus = {
+  pending: 'pending',
+  approved: 'approved',
+} as const;
+
+export interface ApprovalAuthorityRequest {
+  id: string;
+  member_id: string;
+  category: AuthorityCategory;
+  requested_by: string;
+  status: ApprovalAuthorityRequestStatus;
+  created_at: string;
+  decided_by?: string | null;
+  decided_at?: string | null;
+  authority_id?: string | null;
+}
+
 export interface HealthStatus {
   status: string;
 }

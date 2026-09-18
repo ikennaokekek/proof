@@ -8,6 +8,8 @@
 
 export * from './acceptInvitationInput';
 export * from './approvalAuthority';
+export * from './approvalAuthorityRequest';
+export * from './approvalAuthorityRequestStatus';
 export * from './authCredentials';
 export * from './authorityCategory';
 export * from './authorityInput';

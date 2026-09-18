@@ -18,6 +18,9 @@ const access: string[] = [];
 let invitationId = "";
 let acceptedMemberId = "";
 let authorityId = "";
+let dualControlRequestId = "";
+let dualControlAuthorityId = "";
+let staleDualControlRequestId = "";
 let unverifiedInvitationDigest = "";
 
 type AuthBody = { access_token?: string; user?: { id?: string } };
@@ -58,7 +61,8 @@ async function rpc<T>(name: string, user: number | null, args: Record<string, un
   }
   const keys = Object.keys(args);
   const result = await sql(user === null ? null : ids[user], `select * from public.${name}(${keys.map((k, i) => `$${i + 1}`).join(",")})`, Object.values(args), true);
-  return result.rows[0];
+  const row = result.rows[0];
+  return (Object.keys(row).length === 1 && name in row ? row[name] : row) as T;
 }
 
 async function expectDenied(action: () => Promise<unknown>) {
@@ -182,10 +186,55 @@ describe("Slice 2 membership, invitation, authority and audit RLS", () => {
   it("requires an active Approver and blocks duplicate authority", async () => { await expectDenied(() => rpc("grant_approval_authority", 0, { target_org: orgs[0], target_member: acceptedMemberId, authority_category: "supplier_bank_detail_change" })); await expectDenied(() => rpc("grant_approval_authority", 0, { target_org: orgs[0], target_member: acceptedMemberId, authority_category: "payment" })); });
   it("blocks Admin authority grant and revoke", async () => { await expectDenied(() => rpc("grant_approval_authority", 1, { target_org: orgs[0], target_member: acceptedMemberId, authority_category: "payment" })); await expectDenied(() => rpc("revoke_approval_authority", 1, { target_org: orgs[0], authority: authorityId })); });
   it("revokes authority while preserving history and has_authority false", async () => { const row = await rpc<{ active: boolean }>("revoke_approval_authority", 0, { target_org: orgs[0], authority: authorityId }); expect(row.active).toBe(false); const history = await sql(ids[0], "select count(*)::int as count from public.approval_authorities where id=$1", [authorityId]); expect(history.rows[0].count).toBe(1); expect((await sql(ids[0], "select private.has_authority($1,'payment') as value", [orgs[0]])).rows[0].value).toBe(false); });
+  it("requires dual control when another active Owner exists", async () => {
+    const secondOwner = (await sql(ids[1], "select id from public.memberships where user_id=$1 and organization_id=$2", [ids[1], orgs[0]])).rows[0].id;
+    await rpc("update_membership", 0, { target_org: orgs[0], target_member: secondOwner, new_roles: ["Owner"], new_active: true, new_job_title: "Finance Owner" });
+    await rpc("update_membership", 0, { target_org: orgs[0], target_member: acceptedMemberId, new_roles: ["Approver"], new_active: true, new_job_title: "Payment Approver" });
+    await expectDenied(() => rpc("grant_approval_authority", 0, { target_org: orgs[0], target_member: acceptedMemberId, authority_category: "payment" }));
+    const result = await rpc<{ outcome: string; request: { id: string } }>("request_approval_authority_grant", 0, { target_org: orgs[0], target_member: acceptedMemberId, authority_category: "payment" });
+    expect(result.outcome).toBe("pending");
+    dualControlRequestId = result.request.id;
+    expect((await sql(ids[0], "select id from public.approval_authorities where member_id=$1 and category='payment' and active", [acceptedMemberId])).rowCount).toBe(0);
+  });
+  it("denies duplicate, unilateral, self, Admin, and cross-tenant approval attempts", async () => {
+    await expectDenied(() => rpc("request_approval_authority_grant", 0, { target_org: orgs[0], target_member: acceptedMemberId, authority_category: "payment" }));
+    await expectDenied(() => rpc("approve_approval_authority_grant", 0, { target_org: orgs[0], authority_request: dualControlRequestId }));
+    await expectDenied(() => rpc("approve_approval_authority_grant", 2, { target_org: orgs[0], authority_request: dualControlRequestId }));
+    await expectDenied(() => rpc("approve_approval_authority_grant", 4, { target_org: orgs[1], authority_request: dualControlRequestId }));
+    const firstOwner = (await sql(ids[0], "select id from public.memberships where user_id=$1 and organization_id=$2", [ids[0], orgs[0]])).rows[0].id;
+    await expectDenied(() => rpc("request_approval_authority_grant", 0, { target_org: orgs[0], target_member: firstOwner, authority_category: "supplier_bank_detail_change" }));
+  });
+  it("serializes concurrent second-Owner approvals to one grant", async () => {
+    const approvals = await Promise.allSettled([
+      rpc<{ id: string }>("approve_approval_authority_grant", 1, { target_org: orgs[0], authority_request: dualControlRequestId }),
+      rpc<{ id: string }>("approve_approval_authority_grant", 1, { target_org: orgs[0], authority_request: dualControlRequestId }),
+    ]);
+    expect(approvals.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(approvals.filter(result => result.status === "rejected")).toHaveLength(1);
+    const row = (approvals.find(result => result.status === "fulfilled") as PromiseFulfilledResult<{ id: string }>).value;
+    dualControlAuthorityId = row.id;
+    expect(row.id).toBeTruthy();
+    expect((await sql(ids[2], "select private.has_authority($1,'payment') as value", [orgs[0]])).rows[0].value).toBe(true);
+    await expectDenied(() => rpc("approve_approval_authority_grant", 1, { target_org: orgs[0], authority_request: dualControlRequestId }));
+  });
+  it("serializes concurrent authority requests to one pending change", async () => {
+    const requests = await Promise.allSettled([
+      rpc<{ request: { id: string } }>("request_approval_authority_grant", 0, { target_org: orgs[0], target_member: acceptedMemberId, authority_category: "supplier_bank_detail_change" }),
+      rpc<{ request: { id: string } }>("request_approval_authority_grant", 1, { target_org: orgs[0], target_member: acceptedMemberId, authority_category: "supplier_bank_detail_change" }),
+    ]);
+    expect(requests.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(requests.filter(result => result.status === "rejected")).toHaveLength(1);
+    staleDualControlRequestId = (requests.find(result => result.status === "fulfilled") as PromiseFulfilledResult<{ request: { id: string } }>).value.request.id;
+  });
+  it("rejects stale authority requests after target suspension", async () => {
+    await rpc("update_membership", 0, { target_org: orgs[0], target_member: acceptedMemberId, new_roles: ["Approver"], new_active: false, new_job_title: "Paused" });
+    await expectDenied(() => rpc("approve_approval_authority_grant", 1, { target_org: orgs[0], authority_request: staleDualControlRequestId }));
+    await rpc("update_membership", 0, { target_org: orgs[0], target_member: acceptedMemberId, new_roles: ["Approver"], new_active: true, new_job_title: "Active" });
+  });
   it("suspension immediately disables access and authority, then reactivation restores membership", async () => { await rpc("update_membership", 0, { target_org: orgs[0], target_member: acceptedMemberId, new_roles: ["Approver"], new_active: false, new_job_title: "Paused" }); expect((await sql(ids[2], "select id from public.memberships where id=$1", [acceptedMemberId])).rowCount).toBe(0); expect((await sql(ids[2], "select private.has_authority($1,'payment') as value", [orgs[0]])).rows[0].value).toBe(false); await rpc("update_membership", 0, { target_org: orgs[0], target_member: acceptedMemberId, new_roles: ["Approver"], new_active: true, new_job_title: "Active" }); expect((await sql(ids[2], "select id from public.memberships where id=$1", [acceptedMemberId])).rowCount).toBe(1); });
-  it("hides cross-tenant invitation, member and authority IDs", async () => { expect((await sql(ids[0], "select id from public.invitations where id=$1", [crypto.randomUUID()])).rowCount).toBe(0); expect((await sql(ids[0], "select id from public.memberships where organization_id=$1", [orgs[1]])).rowCount).toBe(0); expect((await sql(ids[0], "select id from public.approval_authorities where organization_id=$1", [orgs[1]])).rowCount).toBe(0); });
+  it("hides cross-tenant invitation, member, authority, and request IDs", async () => { expect((await sql(ids[0], "select id from public.invitations where id=$1", [crypto.randomUUID()])).rowCount).toBe(0); expect((await sql(ids[0], "select id from public.memberships where organization_id=$1", [orgs[1]])).rowCount).toBe(0); expect((await sql(ids[0], "select id from public.approval_authorities where organization_id=$1", [orgs[1]])).rowCount).toBe(0); expect((await sql(ids[4], "select id from public.approval_authority_requests where id=$1", [dualControlRequestId])).rowCount).toBe(0); });
   it("denies anonymous RPC calls", async () => { await expectDenied(() => rpc("create_membership_invitation", null, { target_org: orgs[0], invite_email: "anon@example.test", invite_roles: ["Requester"], invite_job_title: "Buyer", invite_digest: "a".repeat(64), invite_expires_at: new Date(Date.now() + 86400000).toISOString() })); });
-  it("denies direct writes to every Slice 2 table", async () => { for (const table of ["invitations", "approval_authorities", "membership_audit_events"]) await expect(sql(ids[0], `insert into public.${table} default values`)).rejects.toBeTruthy(); });
+  it("denies direct writes to every Slice 2 table", async () => { for (const table of ["invitations", "approval_authorities", "approval_authority_requests", "membership_audit_events"]) await expect(sql(ids[0], `insert into public.${table} default values`)).rejects.toBeTruthy(); });
   it("creates audit events for invitation, membership and authority changes", async () => { const count = await sql(ids[0], "select count(*)::int as count from public.membership_audit_events where organization_id=$1", [orgs[0]]); expect(count.rows[0].count).toBeGreaterThan(0); });
   it("denies direct audit mutation", async () => { await expect(sql(ids[0], "update public.membership_audit_events set metadata='{}' where organization_id=$1", [orgs[0]])).rejects.toBeTruthy(); await expect(sql(ids[0], "delete from public.membership_audit_events where organization_id=$1", [orgs[0]])).rejects.toBeTruthy(); });
   it("blocks privileged direct audit mutation and deletion", async () => {
@@ -195,6 +244,7 @@ describe("Slice 2 membership, invitation, authority and audit RLS", () => {
     );
     const eventId = event.rows[0]?.id;
     expect(eventId).toBeTruthy();
+    expect(dualControlAuthorityId).toBeTruthy();
     await expectDenied(() => pool.query(
       "update public.membership_audit_events set metadata=jsonb_build_object('tampered',true) where id=$1",
       [eventId],

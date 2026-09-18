@@ -270,9 +270,50 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApprovalAuthority" }
+        "202":
+          description: Authority increase is pending approval from a different Owner
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApprovalAuthorityRequest" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /organizations/{organizationId}/authority-requests:
+    get:
+      operationId: listApprovalAuthorityRequests
+      tags: [approval-authority]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: Approval Authority governance requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ApprovalAuthorityRequest" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /organizations/{organizationId}/authority-requests/{requestId}/approve:
+    post:
+      operationId: approveApprovalAuthorityRequest
+      tags: [approval-authority]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/AuthorityRequestId"
+      responses:
+        "200":
+          description: Approval Authority granted after independent Owner approval
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApprovalAuthority" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
   /organizations/{organizationId}/authorities/{authorityId}:
     delete:
@@ -345,6 +386,11 @@ components:
     AuthorityId:
       in: path
       name: authorityId
+      required: true
+      schema: { type: string, format: uuid }
+    AuthorityRequestId:
+      in: path
+      name: requestId
       required: true
       schema: { type: string, format: uuid }
   schemas:
@@ -436,6 +482,20 @@ components:
         created_at: { type: string, format: date-time }
         active: { type: boolean }
         revoked_at: { type: string, format: date-time, nullable: true }
+    ApprovalAuthorityRequest:
+      type: object
+      additionalProperties: false
+      required: [id, member_id, category, requested_by, status, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        member_id: { type: string, format: uuid }
+        category: { $ref: "#/components/schemas/AuthorityCategory" }
+        requested_by: { type: string, format: uuid }
+        status: { type: string, enum: [pending, approved] }
+        created_at: { type: string, format: date-time }
+        decided_by: { type: string, format: uuid, nullable: true }
+        decided_at: { type: string, format: date-time, nullable: true }
+        authority_id: { type: string, format: uuid, nullable: true }
     ProofRole:
       type: string
       enum: [Owner, Admin, Requester, Approver, Auditor]

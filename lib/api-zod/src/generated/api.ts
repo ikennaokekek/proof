@@ -286,6 +286,39 @@ export const GrantApprovalAuthorityResponse = zod.object({
 })
 
 
+export const ListApprovalAuthorityRequestsParams = zod.object({
+  "organizationId": zod.coerce.string().uuid()
+})
+
+export const ListApprovalAuthorityRequestsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "member_id": zod.string().uuid(),
+  "category": zod.enum(['payment', 'supplier_bank_detail_change']),
+  "requested_by": zod.string().uuid(),
+  "status": zod.enum(['pending', 'approved']),
+  "created_at": zod.coerce.date(),
+  "decided_by": zod.string().uuid().nullish(),
+  "decided_at": zod.coerce.date().nullish(),
+  "authority_id": zod.string().uuid().nullish()
+})
+export const ListApprovalAuthorityRequestsResponse = zod.array(ListApprovalAuthorityRequestsResponseItem)
+
+
+export const ApproveApprovalAuthorityRequestParams = zod.object({
+  "organizationId": zod.coerce.string().uuid(),
+  "requestId": zod.coerce.string().uuid()
+})
+
+export const ApproveApprovalAuthorityRequestResponse = zod.object({
+  "id": zod.string().uuid(),
+  "member_id": zod.string().uuid(),
+  "category": zod.enum(['payment', 'supplier_bank_detail_change']),
+  "created_at": zod.coerce.date(),
+  "active": zod.boolean(),
+  "revoked_at": zod.coerce.date().nullish()
+})
+
+
 export const RevokeApprovalAuthorityParams = zod.object({
   "organizationId": zod.coerce.string().uuid(),
   "authorityId": zod.coerce.string().uuid()

@@ -6,7 +6,10 @@ import {
   useGrantApprovalAuthority, 
   useRevokeApprovalAuthority,
   getListApprovalAuthoritiesQueryKey,
+  getListApprovalAuthorityRequestsQueryKey,
   AuthorityCategory,
+  useApproveApprovalAuthorityRequest,
+  useListApprovalAuthorityRequests,
   useListOrganizationMembers
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -30,7 +33,15 @@ export function AuthoritiesTab({ organizationId, isOwner }: AuthoritiesTabProps)
   const [revokeConfirmId, setRevokeConfirmId] = useState<string | null>(null);
 
   const { data: authorities, isLoading, error } = useListApprovalAuthorities(organizationId);
+  const { data: authorityRequests, isLoading: requestsLoading } =
+    useListApprovalAuthorityRequests(organizationId, {
+      query: {
+        queryKey: getListApprovalAuthorityRequestsQueryKey(organizationId),
+        refetchInterval: 15_000,
+      },
+    });
   const revoke = useRevokeApprovalAuthority();
+  const approve = useApproveApprovalAuthorityRequest();
 
   if (isLoading) {
     return <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -51,6 +62,25 @@ export function AuthoritiesTab({ organizationId, isOwner }: AuthoritiesTabProps)
 
   const activeAuthorities = authorities.filter(a => a.active);
   const revokedAuthorities = authorities.filter(a => !a.active);
+  const pendingRequests = authorityRequests?.filter(request => request.status === "pending") ?? [];
+
+  const refreshAuthorityState = () => {
+    queryClient.invalidateQueries({ queryKey: getListApprovalAuthoritiesQueryKey(organizationId) });
+    queryClient.invalidateQueries({ queryKey: getListApprovalAuthorityRequestsQueryKey(organizationId) });
+  };
+
+  const handleApprove = (requestId: string) => {
+    approve.mutate({ organizationId, requestId }, {
+      onSuccess: () => {
+        toast.success("Authority granted with independent Owner approval");
+        refreshAuthorityState();
+      },
+      onError: (error) => {
+        toast.error(error.data?.error || "This authority request can no longer be approved");
+        refreshAuthorityState();
+      },
+    });
+  };
 
   const handleRevoke = (authorityId: string) => {
     revoke.mutate({
@@ -163,6 +193,48 @@ export function AuthoritiesTab({ organizationId, isOwner }: AuthoritiesTabProps)
         )}
       </div>
 
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-medium tracking-tight">Pending dual-control requests</h3>
+          <p className="text-sm text-muted-foreground">
+            When more than one Owner is active, a different Owner must approve each authority increase.
+          </p>
+        </div>
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden divide-y divide-border/40">
+          {requestsLoading ? (
+            <div className="p-8 flex justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : pendingRequests.length === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              No authority increases are waiting for a second Owner.
+            </div>
+          ) : (
+            pendingRequests.map(request => (
+              <div key={request.id} className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">{getCategoryLabel(request.category)}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Approver member <span className="font-mono">{request.member_id.split("-")[0]}…</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Requested {format(new Date(request.created_at), "MMM d, yyyy")}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => handleApprove(request.id)}
+                  disabled={approve.isPending}
+                >
+                  {approve.isPending && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
+                  Approve as second Owner
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       {revokedAuthorities.length > 0 && (
         <div className="space-y-4">
           <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">History</h4>
@@ -229,9 +301,15 @@ function GrantAuthorityDialog({
         category: category as AuthorityCategory
       }
     }, {
-      onSuccess: () => {
-        toast.success("Authority granted successfully");
+      onSuccess: (result) => {
+        const pending = "status" in result && result.status === "pending";
+        toast.success(
+          pending
+            ? "Authority request sent for independent Owner approval"
+            : "Authority granted through sole-owner bootstrap",
+        );
         queryClient.invalidateQueries({ queryKey: getListApprovalAuthoritiesQueryKey(organizationId) });
+        queryClient.invalidateQueries({ queryKey: getListApprovalAuthorityRequestsQueryKey(organizationId) });
         onOpenChange(false);
       },
       onError: (error) => {
@@ -249,7 +327,7 @@ function GrantAuthorityDialog({
         <DialogHeader>
           <DialogTitle>Grant Approval Authority</DialogTitle>
           <DialogDescription>
-            Grant explicit authorization rights to an active Approver. This gives them the power to authorize consequential actions.
+            Request explicit authorization rights for an active Approver. If another Owner is active, they must approve the increase independently.
           </DialogDescription>
         </DialogHeader>
         
@@ -296,9 +374,9 @@ function GrantAuthorityDialog({
           </div>
           
           <div className="bg-muted p-4 rounded-lg text-sm border">
-            <p className="font-medium mb-1">Authorization Notice</p>
+            <p className="font-medium mb-1">Dual-control notice</p>
             <p className="text-muted-foreground">
-              By granting this authority, you certify this member is authorized by the organization to perform this category of action.
+              Sole-owner organizations use an audited bootstrap. Otherwise, this request stays pending until a different active Owner approves it.
             </p>
           </div>
         </div>
@@ -312,7 +390,7 @@ function GrantAuthorityDialog({
             disabled={grant.isPending || !memberId || !category || eligibleMembers.length === 0}
           >
             {grant.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Grant Authority
+            Request Authority
           </Button>
         </DialogFooter>
       </DialogContent>
