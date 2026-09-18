@@ -1,0 +1,12 @@
+# Historical Supabase publishable keys. These identify the project but grant no
+# privileged access; authorization remains enforced by Auth and RLS.
+631ed944643352286313c6b88a2f9fb9247b08b7:.replit:generic-api-key:31
+5fecfd4e09b09a871a76f4e3fbf2851946ccfa1a:.replit:generic-api-key:29
+
+# Historical generated Next.js build keys. These files are ignored build
+# output, and the keys are ephemeral preview/server-action build material.
+e2f510a95e1f9e62be9ea062a926c42f860363b5:artifacts/proof/.next/cache/.rscinfo:generic-api-key:1
+e2f510a95e1f9e62be9ea062a926c42f860363b5:artifacts/proof/.next/cache/.previewinfo:generic-api-key:1
+e2f510a95e1f9e62be9ea062a926c42f860363b5:artifacts/proof/.next/prerender-manifest.json:generic-api-key:8
+e2f510a95e1f9e62be9ea062a926c42f860363b5:artifacts/proof/.next/prerender-manifest.json:generic-api-key:9
+e2f510a95e1f9e62be9ea062a926c42f860363b5:artifacts/proof/.next/server/server-reference-manifest.json:generic-api-key:4
