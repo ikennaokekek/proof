@@ -8,3 +8,9 @@ Run Playwright against a dedicated hosted Supabase acceptance project with email
 **Why:** Hosted email delivery rate limits blocked repeatable sign-up verification, while local Supabase requires container support unavailable in this Replit environment. The isolated project preserves real Supabase Auth and RLS without changing the main project.
 
 **How to apply:** Keep all application routes unchanged. Never add test-login routes, fake JWTs, injected cookies, service-role browser requests, disabled RLS, or Auth mocks. Use a dedicated test database credential for trusted cleanup and verify its hostname matches the acceptance API project; the workspace's generic database URL may target a different database. Remove disposable users and organizations after each acceptance run.
+
+Hosted direct database connections may resolve only to IPv6, while this workspace cannot open IPv6 sockets.
+
+**Why:** A syntactically valid, project-matched direct URI failed system resolution; explicit DNS found only an AAAA record, and an IPv6 TCP probe returned `EAFNOSUPPORT`. This is not evidence of an invalid password.
+
+**How to apply:** Check DNS families before requesting repeated credential changes. Prefer the provider's IPv4-compatible session pooler when needed, preserving project identity validation using the pooler username as well as the trusted pooler hostname. Never bypass project matching to make cleanup run.
