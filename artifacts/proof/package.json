@@ -9,9 +9,9 @@
     "start": "NEXT_DIST_DIR=.next-build next start",
     "lint": "eslint app components hooks lib tests --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --exclude tests/integration/**",
-    "test:integration": "SUPABASE_TEST_MODE=local vitest run tests/integration",
-    "test:integration:hosted": "SUPABASE_TEST_MODE=hosted vitest run tests/integration",
+    "test": "vitest run --exclude 'tests/integration/**'",
+    "test:integration": "SUPABASE_TEST_MODE=local vitest run tests/integration --no-file-parallelism --maxWorkers=1",
+    "test:integration:hosted": "SUPABASE_TEST_MODE=hosted vitest run tests/integration --no-file-parallelism --maxWorkers=1",
     "test:e2e": "playwright test"
   },
   "dependencies": {

@@ -23,35 +23,31 @@ export default async function globalTeardown() {
 
   const pool = new Pool({ connectionString, max: 1 });
   try {
-    const result = await pool.query<{
-      deleted_users: string;
-      deleted_organizations: string;
-    }>(`
-      with deleted_users as (
-        delete from auth.users
-        where email like 'proof-slice1-e2e-%@example.com'
-        returning id
-      ),
-      deleted_organizations as (
-        delete from public.organizations
-        where name like 'Slice 1 E2E %'
-        returning id
-      )
-      select
-        (select count(*)::text from deleted_users) as deleted_users,
-        (select count(*)::text from deleted_organizations) as deleted_organizations
+    await pool.query("begin");
+    const organizations = await pool.query(`
+      delete from public.organizations
+      where name like 'Slice 1 E2E %'
+         or name like 'Slice 2 E2E %'
+      returning id
     `);
-    const cleanup = result.rows[0];
+    const users = await pool.query(`
+      delete from auth.users
+      where email like 'proof-slice1-e2e-%@example.com'
+         or email like 'proof-slice2-e2e-%@example.com'
+      returning id
+    `);
+    await pool.query("commit");
     console.log(
       JSON.stringify({
         trustedTestCleanup: {
-          deletedUsers: Number(cleanup?.deleted_users ?? 0),
-          deletedOrganizations: Number(
-            cleanup?.deleted_organizations ?? 0,
-          ),
+          deletedUsers: users.rowCount ?? 0,
+          deletedOrganizations: organizations.rowCount ?? 0,
         },
       }),
     );
+  } catch (error) {
+    await pool.query("rollback");
+    throw error;
   } finally {
     await pool.end();
   }

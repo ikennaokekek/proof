@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
-  title: Api
-  version: 0.1.0
-  description: PROOF Slice 1 foundation API
+  title: PROOF API
+  version: 0.2.0
+  description: PROOF Slice 2 organization membership, invitations, and approval authority API
 servers:
   - url: /api
     description: Base API path
@@ -10,6 +10,9 @@ tags:
   - name: health
   - name: authentication
   - name: organizations
+  - name: memberships
+  - name: invitations
+  - name: approval-authority
 paths:
   /healthz:
     get:
@@ -116,7 +119,211 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OrganizationDetail"
+  /organizations/{organizationId}/invitations:
+    get:
+      operationId: listOrganizationInvitations
+      tags: [invitations]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: Organization invitations
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invitation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    post:
+      operationId: createOrganizationInvitation
+      tags: [invitations]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvitationInput" }
+      responses:
+        "201":
+          description: Invitation created; token is returned once
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvitationCreateResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /organizations/{organizationId}/invitations/{invitationId}/revoke:
+    post:
+      operationId: revokeOrganizationInvitation
+      tags: [invitations]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/InvitationId"
+      responses:
+        "200":
+          description: Revoked invitation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invitation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /invitations/accept:
+    post:
+      operationId: acceptInvitation
+      tags: [invitations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AcceptInvitationInput" }
+      responses:
+        "201":
+          description: Invitation accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /organizations/{organizationId}/members:
+    get:
+      operationId: listOrganizationMembers
+      tags: [memberships]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: Organization members
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Member" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /organizations/{organizationId}/members/{memberId}:
+    patch:
+      operationId: updateOrganizationMember
+      tags: [memberships]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/MemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MemberUpdateInput" }
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /organizations/{organizationId}/authorities:
+    get:
+      operationId: listApprovalAuthorities
+      tags: [approval-authority]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: Active approval authorities
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ApprovalAuthority" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    post:
+      operationId: grantApprovalAuthority
+      tags: [approval-authority]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AuthorityInput" }
+      responses:
+        "201":
+          description: Approval authority granted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApprovalAuthority" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /organizations/{organizationId}/authorities/{authorityId}:
+    delete:
+      operationId: revokeApprovalAuthority
+      tags: [approval-authority]
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/AuthorityId"
+      responses:
+        "200":
+          description: Revoked approval authority
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApprovalAuthority" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 components:
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Insufficient permission
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Operation conflict
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ServiceUnavailable:
+      description: Service unavailable
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
   parameters:
     OrganizationId:
       in: path
@@ -125,7 +332,116 @@ components:
       schema:
         type: string
         format: uuid
+    InvitationId:
+      in: path
+      name: invitationId
+      required: true
+      schema: { type: string, format: uuid }
+    MemberId:
+      in: path
+      name: memberId
+      required: true
+      schema: { type: string, format: uuid }
+    AuthorityId:
+      in: path
+      name: authorityId
+      required: true
+      schema: { type: string, format: uuid }
   schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error: { type: string }
+    InvitationInput:
+      type: object
+      additionalProperties: false
+      required: [email, roles, jobTitle]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        roles:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items: { type: string, enum: [Requester, Approver, Auditor] }
+        jobTitle: { type: string, minLength: 2, maxLength: 100 }
+    AcceptInvitationInput:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token: { type: string, minLength: 32, maxLength: 512 }
+    MemberUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [roles, active, jobTitle]
+      properties:
+        roles:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: { $ref: "#/components/schemas/ProofRole" }
+        active: { type: boolean }
+        jobTitle: { type: string, minLength: 2, maxLength: 100 }
+    AuthorityInput:
+      type: object
+      additionalProperties: false
+      required: [memberId, category]
+      properties:
+        memberId: { type: string, format: uuid }
+        category: { $ref: "#/components/schemas/AuthorityCategory" }
+    Invitation:
+      type: object
+      required: [id, email, roles, job_title, expires_at, status, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        roles:
+          type: array
+          items: { type: string, enum: [Requester, Approver, Auditor] }
+        job_title: { type: string }
+        expires_at: { type: string, format: date-time }
+        status: { type: string, enum: [pending, accepted, revoked, expired] }
+        created_at: { type: string, format: date-time }
+        accepted_at: { type: string, format: date-time, nullable: true }
+        revoked_at: { type: string, format: date-time, nullable: true }
+    InvitationCreateResult:
+      type: object
+      additionalProperties: false
+      required: [invitation, token]
+      properties:
+        invitation: { $ref: "#/components/schemas/Invitation" }
+        token: { type: string, minLength: 32 }
+    Member:
+      type: object
+      additionalProperties: false
+      required: [id, user_id, roles, job_title, active, joined_at]
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        roles:
+          type: array
+          items: { $ref: "#/components/schemas/ProofRole" }
+        job_title: { type: string }
+        active: { type: boolean }
+        joined_at: { type: string, format: date-time }
+    ApprovalAuthority:
+      type: object
+      required: [id, member_id, category, created_at, active]
+      properties:
+        id: { type: string, format: uuid }
+        member_id: { type: string, format: uuid }
+        category: { $ref: "#/components/schemas/AuthorityCategory" }
+        created_at: { type: string, format: date-time }
+        active: { type: boolean }
+        revoked_at: { type: string, format: date-time, nullable: true }
+    ProofRole:
+      type: string
+      enum: [Owner, Admin, Requester, Approver, Auditor]
+    AuthorityCategory:
+      type: string
+      enum: [payment, supplier_bank_detail_change]
     HealthStatus:
       type: object
       required: [status]

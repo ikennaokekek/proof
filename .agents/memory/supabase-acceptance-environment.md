@@ -14,3 +14,15 @@ Hosted direct database connections may resolve only to IPv6, while this workspac
 **Why:** A syntactically valid, project-matched direct URI failed system resolution; explicit DNS found only an AAAA record, and an IPv6 TCP probe returned `EAFNOSUPPORT`. This is not evidence of an invalid password.
 
 **How to apply:** Check DNS families before requesting repeated credential changes. Prefer the provider's IPv4-compatible session pooler when needed, preserving project identity validation using the pooler username as well as the trusted pooler hostname. Never bypass project matching to make cleanup run.
+
+Do not put compatibility DDL for Supabase-managed `auth` relations in application migrations.
+
+**Why:** The hosted database role can migrate application schemas but is not the owner of `auth.users`; attempting to alter it rejects the whole migration. Local Auth fixture compatibility belongs in the test harness.
+
+**How to apply:** Treat the hosted `auth` schema as provider-owned. Keep minimal local fixture columns aligned in integration setup code, and limit migrations to application-owned schemas and objects.
+
+Use business/constraint SQLSTATEs for expected invitation conflicts, not retryable transaction SQLSTATEs.
+
+**Why:** `40001` means serialization failure; hosted infrastructure retried expected replay and expiry denials until tests timed out instead of returning the conflict promptly.
+
+**How to apply:** Reserve retryable SQLSTATEs for genuine transaction failures. Use a non-retryable state such as `23514` or an application-specific code for expected one-time-token and lifecycle rejections.

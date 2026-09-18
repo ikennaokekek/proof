@@ -20,6 +20,18 @@ const authSchema = z.object({
 
 type AuthValues = z.infer<typeof authSchema>;
 
+function safeReturnPath(value: string | null) {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/';
+  try {
+    const parsed = new URL(value, window.location.origin);
+    return parsed.origin === window.location.origin
+      ? `${parsed.pathname}${parsed.search}${parsed.hash}`
+      : '/';
+  } catch {
+    return '/';
+  }
+}
+
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const { signIn, signUp } = useAuth();
@@ -41,7 +53,8 @@ export default function AuthPage() {
         const result = await signUp(values);
         if (result.authenticated) {
           toast.success('Account created successfully');
-          router.push('/');
+          const params = new URLSearchParams(window.location.search);
+          router.push(safeReturnPath(params.get('returnTo')));
         } else {
           toast.error(result.message || 'Failed to create account');
         }
@@ -49,7 +62,8 @@ export default function AuthPage() {
         const result = await signIn(values);
         if (result.authenticated) {
           toast.success('Signed in successfully');
-          router.push('/');
+          const params = new URLSearchParams(window.location.search);
+          router.push(safeReturnPath(params.get('returnTo')));
         } else {
           toast.error(result.message || 'Invalid email or password');
         }

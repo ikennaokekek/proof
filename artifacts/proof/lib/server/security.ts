@@ -19,6 +19,14 @@ type SecurityEvent =
   | "auth.sign_out"
   | "auth.sign_up"
   | "organization.create"
+  | "membership.invitation_create"
+  | "membership.invitation_revoke"
+  | "membership.invitation_accept"
+  | "membership.change"
+  | "membership.suspend"
+  | "membership.reactivate"
+  | "authority.grant"
+  | "authority.revoke"
   | "request.csrf_rejected"
   | "request.rate_limited";
 
