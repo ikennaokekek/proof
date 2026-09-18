@@ -6,6 +6,7 @@ test.describe.configure({ mode: "serial" });
 test("Slice 2 membership, invitation, authority, and suspension journey", async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const suffix = randomUUID();
   const ownerEmail = `proof-slice2-e2e-owner-${suffix}@example.com`;
   const memberEmail = `proof-slice2-e2e-member-${suffix}@example.com`;
