@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { validateSupabaseDatabaseTarget } from "../support/supabase-project";
 
 export default async function globalTeardown() {
   const connectionString = process.env.SUPABASE_TEST_DATABASE_URL;
@@ -18,13 +19,7 @@ export default async function globalTeardown() {
   if (!apiUrl) {
     throw new Error("SUPABASE_TEST_URL is required for trusted E2E cleanup");
   }
-  const projectRef = new URL(apiUrl).hostname.split(".", 1)[0];
-  const databaseHost = new URL(connectionString).hostname;
-  if (!projectRef || !databaseHost.includes(projectRef)) {
-    throw new Error(
-      "SUPABASE_TEST_DATABASE_URL does not match SUPABASE_TEST_URL",
-    );
-  }
+  validateSupabaseDatabaseTarget(apiUrl, connectionString);
 
   const pool = new Pool({ connectionString, max: 1 });
   try {
